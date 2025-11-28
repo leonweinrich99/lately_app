@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'core/theme/app_colors.dart';
-import 'shared/navigation/floating_bottom_nav.dart';
-import 'features/feed/presentation/feed_screen.dart'; // <--- Import hinzugefügt
+import 'src/core/theme/app_colors.dart';
+import 'src/shared/navigation/floating_bottom_nav.dart';
+import 'src/features/feed/presentation/feed_screen.dart';
+import 'src/features/recorder/presentation/record_screen.dart'; // Importieren!
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  runApp(const LatelyApp());
+
+  runApp(const ProviderScope(child: LatelyApp()));
 }
 
 class LatelyApp extends StatelessWidget {
@@ -47,20 +50,34 @@ class MainScaffold extends StatefulWidget {
 class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
 
-  // Placeholder Screens
   final List<Widget> _screens = [
-    const FeedScreen(), // <--- Hier ist der neue Feed Screen
+    const FeedScreen(),
     const Center(child: Text("Freunde (Coming Soon)")),
     const Center(child: Text("Profil (Coming Soon)")),
   ];
 
+  void _openRecorder() {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => const RecordScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(0.0, 1.0); // Von unten einschweben
+          const end = Offset.zero;
+          const curve = Curves.easeOutQuart;
+          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          return SlideTransition(position: animation.drive(tween), child: child);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBody: true, // Wichtig für Glass-Effekt hinter der Bar
+      extendBody: true,
       body: Stack(
         children: [
-          // 1. Hintergrund Gradient
+          // Hintergrund
           Container(
             decoration: const BoxDecoration(
               gradient: RadialGradient(
@@ -71,38 +88,21 @@ class _MainScaffoldState extends State<MainScaffold> {
             ),
           ),
 
-          // 2. Der aktive Screen
+          // Inhalt
           IndexedStack(
             index: _currentIndex,
             children: _screens,
           ),
 
-          // 3. Navigation Layer (Unten)
+          // Navigation
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: Stack(
-              alignment: Alignment.bottomCenter,
-              clipBehavior: Clip.none, // Erlaubt dem Button überzustehen
-              children: [
-                // Die Glas-Leiste
-                FloatingBottomNav(
-                  currentIndex: _currentIndex,
-                  onTap: (index) => setState(() => _currentIndex = index),
-                  onRecordTap: () {}, // Callback für später
-                ),
-
-                // Der schwebende Record Button
-                Positioned(
-                  bottom: 50, // Zieht den Button nach oben raus
-                  child: FloatingRecordButton(
-                    onTap: () {
-                      print("Aufnahme starten...");
-                    },
-                  ),
-                ),
-              ],
+            child: FloatingBottomNav(
+              currentIndex: _currentIndex,
+              onTap: (index) => setState(() => _currentIndex = index),
+              onRecordTap: _openRecorder, // Hier rufen wir die Funktion auf
             ),
           ),
         ],
