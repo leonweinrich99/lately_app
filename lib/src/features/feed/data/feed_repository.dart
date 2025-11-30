@@ -1,53 +1,41 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/audio_update_model.dart';
 
-// 1. Die abstrakte Schnittstelle (Der Vertrag)
-// Jedes Repository (egal ob Fake oder Echt) muss diese Methoden haben.
-abstract class FeedRepository {
-  Future<List<AudioUpdate>> getUpdatesForUser(String currentUserId);
-  Future<void> likeUpdate(String updateId, String userId);
-}
+// Wir nutzen jetzt einen Notifier, um Daten auch verändern zu können
+class FeedRepository extends StateNotifier<List<AudioUpdate>> {
+  FeedRepository() : super([]) {
+    // Initiale Mock-Daten laden
+    _loadMockData();
+  }
 
-// 2. Die Mock-Implementierung (Für die Entwicklung JETZT)
-// Damit können wir arbeiten, als hätten wir ein Backend, ohne eines zu haben.
-class MockFeedRepository implements FeedRepository {
-  @override
-  Future<List<AudioUpdate>> getUpdatesForUser(String currentUserId) async {
-    // Simuliert Netzwerk-Ladezeit für realistisches Feeling
+  Future<void> _loadMockData() async {
     await Future.delayed(const Duration(seconds: 1));
-
-    return [
+    state = [
       AudioUpdate(
-        id: '1',
-        userId: 'u1',
-        userDisplayName: 'Lena',
-        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3', // Echte URL zum Testen
+        id: '1', userId: 'u1', userDisplayName: 'Lena',
+        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
         durationSeconds: 134,
         createdAt: DateTime.now().subtract(const Duration(hours: 2)),
         promptTitle: "Gedanken zum Sonntag",
       ),
       AudioUpdate(
-        id: '2',
-        userId: 'u2',
-        userDisplayName: 'Tom',
+        id: '2', userId: 'u2', userDisplayName: 'Tom',
         audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
         durationSeconds: 45,
         createdAt: DateTime.now().subtract(const Duration(days: 1)),
         promptTitle: "Kurzes Life-Update",
       ),
-      AudioUpdate(
-        id: '3',
-        userId: 'u3',
-        userDisplayName: 'Oma Renate',
-        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-        durationSeconds: 270,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
     ];
   }
 
-  @override
-  Future<void> likeUpdate(String updateId, String userId) async {
-    print("User $userId liked update $updateId (Mock Backend Call)");
-    await Future.delayed(const Duration(milliseconds: 300));
+  // Methode zum Hinzufügen eines neuen Updates
+  void addUpdate(AudioUpdate update) {
+    // Fügt das neue Update ganz oben in die Liste ein
+    state = [update, ...state];
+  }
+
+  // Methode zum Abrufen (für den Provider)
+  List<AudioUpdate> getUpdates() {
+    return state;
   }
 }

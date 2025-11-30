@@ -5,17 +5,21 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_container.dart';
-import '../data/feed_providers.dart';
+import '../../../core/services/audio_player_service.dart';
+import '../../feed/data/feed_providers.dart';
 import '../domain/audio_update_model.dart';
+import '../domain/challenge_model.dart'; // Importieren
+import 'update_detail_screen.dart';
+import '../../recorder/presentation/record_screen.dart';
 
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Wir "beobachten" den Provider.
-    // Riverpod kümmert sich um Loading/Error/Data States.
     final updatesAsync = ref.watch(feedUpdatesProvider);
+    // Wir beobachten jetzt auch die Challenges
+    final challengesAsync = ref.watch(activeChallengesProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 60, 20, 120),
@@ -24,25 +28,24 @@ class FeedScreen extends ConsumerWidget {
         children: [
           _buildHeader(),
           const SizedBox(height: 30),
-          _buildSectionTitle("erzähl' doch mal ..."),
-          const SizedBox(height: 16),
-          _buildChallengeList(),
-          const SizedBox(height: 30),
-          _buildSectionTitle("was gibt's neues", action: "Alle abspielen"),
+          _buildSectionTitle("Für Dich"),
           const SizedBox(height: 16),
 
-          // Hier reagieren wir auf den Daten-Status
+          // Asynchrones Laden der Challenges
+          challengesAsync.when(
+            data: (challenges) => _buildChallengeList(context, challenges),
+            loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(color: AppColors.accent))),
+            error: (err, _) => SizedBox(height: 100, child: Text("Fehler: $err", style: TextStyle(color: AppColors.textDim))),
+          ),
+
+          const SizedBox(height: 30),
+          _buildSectionTitle("Neues aus dem Kreis", action: "Alle abspielen"),
+          const SizedBox(height: 16),
+
           updatesAsync.when(
-            data: (updates) => _buildUpdateList(updates),
-            loading: () => const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32.0),
-                child: CircularProgressIndicator(color: AppColors.accent),
-              ),
-            ),
-            error: (err, stack) => Center(
-              child: Text("Fehler beim Laden: $err", style: TextStyle(color: AppColors.alert)),
-            ),
+            data: (updates) => _buildUpdateList(updates, ref, context),
+            loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.accent))),
+            error: (err, stack) => Text("Fehler: $err", style: const TextStyle(color: AppColors.alert)),
           ),
         ],
       ),
@@ -62,9 +65,9 @@ class FeedScreen extends ConsumerWidget {
             Text("Hallo, Tom.", style: GoogleFonts.playfairDisplay(color: AppColors.textLight, fontSize: 32, fontWeight: FontWeight.w500)),
           ],
         ),
-        GlassContainer(
+        const GlassContainer(
           width: 44, height: 44, padding: EdgeInsets.zero, borderRadius: 14,
-          child: const Center(child: Icon(LucideIcons.users, color: AppColors.textDim, size: 20)),
+          child: Center(child: Icon(LucideIcons.users, color: AppColors.textDim, size: 20)),
         ),
       ],
     );
@@ -80,13 +83,8 @@ class FeedScreen extends ConsumerWidget {
     );
   }
 
-  // Die Challenges sind aktuell noch statisch (könnte man später auch ins Repository packen)
-  Widget _buildChallengeList() {
-    final challenges = [
-      {"title": "Daily 10", "subtitle": "Die 10 Fragen des Tages", "bg": const Color(0xFFE0E8E7), "text": const Color(0xFF0F2926), "logo": "D10"},
-      {"title": "Gefühls-Check", "subtitle": "Wie geht es dir wirklich?", "bg": const Color(0xFFDBC6BE), "text": const Color(0xFF2D1B1B), "logo": "Mood"},
-    ];
-
+  // Akzeptiert jetzt echte Challenge-Objekte
+  Widget _buildChallengeList(BuildContext context, List<Challenge> challenges) {
     return SizedBox(
       height: 160,
       child: ListView.separated(
@@ -95,22 +93,56 @@ class FeedScreen extends ConsumerWidget {
         itemCount: challenges.length,
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, index) {
-          final item = challenges[index];
-          return Container(
-            width: 240,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(color: item['bg'] as Color, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))]),
-            child: Stack(
-              children: [
-                Positioned(right: -20, top: -20, child: Opacity(opacity: 0.1, child: Text(item['logo'] as String, style: GoogleFonts.playfairDisplay(fontSize: 80, fontWeight: FontWeight.w900, color: item['text'] as Color)))),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(item['title'] as String, style: GoogleFonts.playfairDisplay(fontSize: 28, fontWeight: FontWeight.w600, color: item['text'] as Color)),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Expanded(child: Text(item['subtitle'] as String, style: GoogleFonts.inter(fontSize: 13, color: (item['text'] as Color).withOpacity(0.7), height: 1.4))),
-                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: (item['text'] as Color).withOpacity(0.2))), child: Icon(LucideIcons.arrowRight, size: 16, color: item['text'] as Color)),
-                  ])
-                ]),
-              ],
+          final challenge = challenges[index];
+          return GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      RecordScreen(challenge: challenge), // Ganzes Objekt übergeben
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(0.0, 1.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeOutQuart;
+                    var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                    return SlideTransition(position: animation.drive(tween), child: child);
+                  },
+                ),
+              );
+            },
+            child: Container(
+              width: 240,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Color(challenge.bgColorHex), // Farbe aus Model
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                      right: -20, top: -20,
+                      child: Opacity(
+                          opacity: 0.1,
+                          child: Text(challenge.logo, style: GoogleFonts.playfairDisplay(fontSize: 80, fontWeight: FontWeight.w900, color: Color(challenge.textColorHex)))
+                      )
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text(challenge.title, style: GoogleFonts.playfairDisplay(fontSize: 28, fontWeight: FontWeight.w600, color: Color(challenge.textColorHex))),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      Expanded(
+                          child: Text(
+                            challenge.subtitle,
+                            style: GoogleFonts.inter(fontSize: 13, color: Color(challenge.textColorHex).withOpacity(0.7), height: 1.4),
+                            maxLines: 2, overflow: TextOverflow.ellipsis,
+                          )
+                      ),
+                      const SizedBox(width: 8),
+                      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Color(challenge.textColorHex).withOpacity(0.2))), child: Icon(LucideIcons.arrowRight, size: 16, color: Color(challenge.textColorHex))),
+                    ])
+                  ]),
+                ],
+              ),
             ),
           );
         },
@@ -118,8 +150,9 @@ class FeedScreen extends ConsumerWidget {
     );
   }
 
-  // Nimmt jetzt echte AudioUpdate Objekte entgegen!
-  Widget _buildUpdateList(List<AudioUpdate> updates) {
+  // _buildUpdateList bleibt unverändert (habe sie hier weggelassen für Kürze, bitte deinen Code behalten)
+  Widget _buildUpdateList(List<AudioUpdate> updates, WidgetRef ref, BuildContext context) {
+    final audioState = ref.watch(audioPlayerProvider);
     return ListView.separated(
       padding: EdgeInsets.zero,
       physics: const NeverScrollableScrollPhysics(),
@@ -128,35 +161,24 @@ class FeedScreen extends ConsumerWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final update = updates[index];
-        return GlassContainer(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 48, height: 48, alignment: Alignment.center,
-                decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Colors.white.withOpacity(0.1), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight), border: Border.all(color: Colors.white.withOpacity(0.1))),
-                child: Text(update.userDisplayName[0], style: GoogleFonts.playfairDisplay(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 20)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(update.userDisplayName, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textLight)),
-                        Text(update.formattedDuration, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textDim, fontFeatures: const [FontFeature.tabularFigures()])),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(update.promptTitle ?? "Life Update", style: GoogleFonts.inter(fontSize: 13, color: AppColors.textDim), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.05)), child: const Icon(LucideIcons.play, color: AppColors.textLight, size: 16)),
-            ],
+        final isPlayingThis = audioState.playingUrl == update.audioUrl && audioState.isPlaying;
+        return GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => UpdateDetailScreen(update: update)),
+            );
+          },
+          child: GlassContainer(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(width: 48, height: 48, alignment: Alignment.center, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Colors.white.withOpacity(0.1), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight), border: Border.all(color: Colors.white.withOpacity(0.1))), child: Text(update.userDisplayName[0], style: GoogleFonts.playfairDisplay(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 20))),
+                const SizedBox(width: 16),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.center, children: [Text(update.userDisplayName, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textLight)), Text(isPlayingThis ? "Spielt..." : update.formattedDuration, style: GoogleFonts.inter(fontSize: 12, color: isPlayingThis ? AppColors.accent : AppColors.textDim, fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.normal, fontFeatures: const [FontFeature.tabularFigures()]))]), const SizedBox(height: 4), Text(update.promptTitle ?? "Life Update", style: GoogleFonts.inter(fontSize: 13, color: AppColors.textDim), maxLines: 1, overflow: TextOverflow.ellipsis)])),
+                const SizedBox(width: 20),
+                GestureDetector(onTap: () { ref.read(audioPlayerProvider.notifier).toggle(update.audioUrl); }, child: Container(width: 36, height: 36, decoration: BoxDecoration(shape: BoxShape.circle, color: isPlayingThis ? AppColors.accent : Colors.white.withOpacity(0.05)), child: Icon(isPlayingThis ? LucideIcons.pause : LucideIcons.play, color: isPlayingThis ? AppColors.bgDeep : AppColors.textLight, size: 16))),
+              ],
+            ),
           ),
         );
       },

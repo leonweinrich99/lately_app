@@ -5,7 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'src/core/theme/app_colors.dart';
 import 'src/shared/navigation/floating_bottom_nav.dart';
 import 'src/features/feed/presentation/feed_screen.dart';
-import 'src/features/recorder/presentation/record_screen.dart'; // Importieren!
+import 'src/features/recorder/presentation/record_screen.dart';
+import 'src/features/friends/presentation/profile_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -53,7 +54,7 @@ class _MainScaffoldState extends State<MainScaffold> {
   final List<Widget> _screens = [
     const FeedScreen(),
     const Center(child: Text("Freunde (Coming Soon)")),
-    const Center(child: Text("Profil (Coming Soon)")),
+    const ProfileScreen(),
   ];
 
   void _openRecorder() {
