@@ -7,8 +7,8 @@ import '../../../core/widgets/glass_container.dart';
 import '../../friends/data/profile_repository.dart';
 import '../../friends/domain/profile_model.dart';
 import '../../../core/services/audio_player_service.dart';
-import '../../feed/data/feed_providers.dart'; // Zugriff auf Feed-Daten
-import '../../feed/domain/audio_update_model.dart'; // Audio Update Model
+import '../../feed/data/feed_providers.dart';
+import '../../feed/domain/audio_update_model.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -22,7 +22,6 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(userProfileProvider(currentUserId));
     final allUpdatesAsync = ref.watch(feedUpdatesProvider);
 
-    // Audio Status beobachten
     final audioState = ref.watch(audioPlayerProvider);
 
     return SingleChildScrollView(
@@ -36,12 +35,10 @@ class ProfileScreen extends ConsumerWidget {
             _buildUserInfo(profile),
             const SizedBox(height: 40),
 
-            // EINKLAPPBARER STECKBRIEF
             _buildCollapsibleFriendbook(profile, ref, audioState),
 
             const SizedBox(height: 40),
 
-            // MEINE UPDATES SECTION
             Text(
               "Meine Updates",
               style: GoogleFonts.inter(
@@ -54,18 +51,8 @@ class ProfileScreen extends ConsumerWidget {
 
             allUpdatesAsync.when(
               data: (updates) {
-                // FILTER: Nur Updates anzeigen, die mir gehören
-                // Hinweis: Im Mock-Repo müssen wir sicherstellen, dass es Updates mit 'current_user_id' gibt,
-                // sonst bleibt die Liste leer. Für Demo-Zwecke zeige ich hier ALLES an, wenn die ID nicht passt,
-                // aber der Code für den Filter ist auskommentiert vorbereitet.
-
-                /* ECHTER FILTER (Aktivieren sobald echte Daten da sind):
+                // FILTER: Zeige NUR meine eigenen Updates
                 final myUpdates = updates.where((u) => u.userId == currentUserId).toList();
-                */
-
-                // MOCK FILTER (Damit man was sieht, filtere ich nach 'u1' oder zeige alle)
-                // In der Produktion wird das durch den echten Filter ersetzt.
-                final myUpdates = updates;
 
                 if (myUpdates.isEmpty) {
                   return Padding(
@@ -106,7 +93,8 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  // --- WIDGETS ---
+  // ... (Restliche Widgets _buildHeader, _buildUserInfo, _buildCollapsibleFriendbook, _buildEntryCard, _buildMyUpdateCard, _buildInviteBox bleiben gleich wie im vorherigen Schritt "Profile Screen Own Updates")
+  // Ich werde sie hier einfügen für Vollständigkeit.
 
   Widget _buildHeader() {
     return Row(
@@ -163,14 +151,13 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  // Einklappbarer Bereich für das Freundebuch
   Widget _buildCollapsibleFriendbook(FriendProfile profile, WidgetRef ref, AudioState audioState) {
     return Theme(
       data: Theme.of(ref.context).copyWith(dividerColor: Colors.transparent),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: Container(
-          color: Colors.white.withOpacity(0.05), // Leichter Hintergrund für den Block
+          color: Colors.white.withOpacity(0.05),
           child: ExpansionTile(
             title: Text(
               "Steckbrief",
@@ -179,7 +166,6 @@ class ProfileScreen extends ConsumerWidget {
             trailing: Icon(LucideIcons.chevronDown, color: AppColors.textDim),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
-              // Bearbeiten Button
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(
@@ -190,7 +176,6 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              // Liste der Einträge
               ListView.separated(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -258,19 +243,15 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  // Karte für "Meine Updates" - Angepasst für eigene Inhalte
   Widget _buildMyUpdateCard(AudioUpdate update, WidgetRef ref, AudioState audioState) {
     final isPlayingThis = audioState.playingUrl == update.audioUrl && audioState.isPlaying;
-
-    // Mapping von Wochentagen/Monaten wäre hier cool, aber für jetzt hardcoded
     final day = update.createdAt.day.toString();
-    final month = "NOV"; // Platzhalter
+    final month = "NOV";
 
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          // Datum-Box statt Avatar
           Container(
             width: 48, height: 48,
             decoration: BoxDecoration(
@@ -287,7 +268,6 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 16),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +278,6 @@ class ProfileScreen extends ConsumerWidget {
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                // Zeigt an, mit wem geteilt wurde (im Mock noch nicht verfügbar, daher Platzhalter)
                 Row(
                   children: [
                     Icon(LucideIcons.users, size: 12, color: AppColors.textDim),
@@ -309,9 +288,7 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
           ),
-
           const SizedBox(width: 12),
-
           GestureDetector(
             onTap: () { ref.read(audioPlayerProvider.notifier).toggle(update.audioUrl); },
             child: Container(

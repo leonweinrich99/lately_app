@@ -8,7 +8,7 @@ import '../../../core/widgets/glass_container.dart';
 import '../../../core/services/audio_player_service.dart';
 import '../../feed/data/feed_providers.dart';
 import '../domain/audio_update_model.dart';
-import '../domain/challenge_model.dart'; // Importieren
+import '../domain/challenge_model.dart';
 import 'update_detail_screen.dart';
 import '../../recorder/presentation/record_screen.dart';
 
@@ -18,7 +18,6 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final updatesAsync = ref.watch(feedUpdatesProvider);
-    // Wir beobachten jetzt auch die Challenges
     final challengesAsync = ref.watch(activeChallengesProvider);
 
     return SingleChildScrollView(
@@ -31,11 +30,10 @@ class FeedScreen extends ConsumerWidget {
           _buildSectionTitle("Für Dich"),
           const SizedBox(height: 16),
 
-          // Asynchrones Laden der Challenges
           challengesAsync.when(
             data: (challenges) => _buildChallengeList(context, challenges),
             loading: () => const SizedBox(height: 160, child: Center(child: CircularProgressIndicator(color: AppColors.accent))),
-            error: (err, _) => SizedBox(height: 100, child: Text("Fehler: $err", style: TextStyle(color: AppColors.textDim))),
+            error: (err, _) => SizedBox(height: 100, child: Text("Fehler: $err", style: const TextStyle(color: AppColors.textDim))),
           ),
 
           const SizedBox(height: 30),
@@ -43,7 +41,20 @@ class FeedScreen extends ConsumerWidget {
           const SizedBox(height: 16),
 
           updatesAsync.when(
-            data: (updates) => _buildUpdateList(updates, ref, context),
+            data: (updates) {
+              // FILTER: Zeige nur Updates von Freunden (alles außer mir selbst)
+              // In einer echten App würde man die 'current_user_id' aus dem Auth-State holen.
+              final friendUpdates = updates.where((u) => u.userId != 'current_user_id').toList();
+
+              if (friendUpdates.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text("Alles ruhig im Kreis. Zeit für ein Update von dir?", style: TextStyle(color: AppColors.textDim.withOpacity(0.5))),
+                );
+              }
+
+              return _buildUpdateList(friendUpdates, ref, context);
+            },
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: AppColors.accent))),
             error: (err, stack) => Text("Fehler: $err", style: const TextStyle(color: AppColors.alert)),
           ),
@@ -51,6 +62,9 @@ class FeedScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // ... (Restliche Widgets wie _buildHeader, _buildSectionTitle, _buildChallengeList, _buildUpdateList bleiben gleich)
+  // Ich kopiere sie hier herein, damit die Datei vollständig ist.
 
   Widget _buildHeader() {
     return Row(
@@ -83,7 +97,6 @@ class FeedScreen extends ConsumerWidget {
     );
   }
 
-  // Akzeptiert jetzt echte Challenge-Objekte
   Widget _buildChallengeList(BuildContext context, List<Challenge> challenges) {
     return SizedBox(
       height: 160,
@@ -99,7 +112,7 @@ class FeedScreen extends ConsumerWidget {
               Navigator.of(context).push(
                 PageRouteBuilder(
                   pageBuilder: (context, animation, secondaryAnimation) =>
-                      RecordScreen(challenge: challenge), // Ganzes Objekt übergeben
+                      RecordScreen(challenge: challenge),
                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
                     const begin = Offset(0.0, 1.0);
                     const end = Offset.zero;
@@ -114,7 +127,7 @@ class FeedScreen extends ConsumerWidget {
               width: 240,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Color(challenge.bgColorHex), // Farbe aus Model
+                color: Color(challenge.bgColorHex),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
               ),
@@ -150,7 +163,6 @@ class FeedScreen extends ConsumerWidget {
     );
   }
 
-  // _buildUpdateList bleibt unverändert (habe sie hier weggelassen für Kürze, bitte deinen Code behalten)
   Widget _buildUpdateList(List<AudioUpdate> updates, WidgetRef ref, BuildContext context) {
     final audioState = ref.watch(audioPlayerProvider);
     return ListView.separated(
@@ -172,7 +184,7 @@ class FeedScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Container(width: 48, height: 48, alignment: Alignment.center, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Colors.white.withOpacity(0.1), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight), border: Border.all(color: Colors.white.withOpacity(0.1))), child: Text(update.userDisplayName[0], style: GoogleFonts.playfairDisplay(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 20))),
+                Container(width: 48, height: 48, alignment: Alignment.center, decoration: BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Colors.white.withOpacity(0.1), Colors.transparent], begin: Alignment.topLeft, end: Alignment.bottomRight), border: Border.all(color: Colors.white.withOpacity(0.1))), child: Text(update.userDisplayName.isNotEmpty ? update.userDisplayName[0] : "?", style: GoogleFonts.playfairDisplay(color: AppColors.textLight, fontWeight: FontWeight.bold, fontSize: 20))),
                 const SizedBox(width: 16),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.center, children: [Text(update.userDisplayName, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppColors.textLight)), Text(isPlayingThis ? "Spielt..." : update.formattedDuration, style: GoogleFonts.inter(fontSize: 12, color: isPlayingThis ? AppColors.accent : AppColors.textDim, fontWeight: isPlayingThis ? FontWeight.bold : FontWeight.normal, fontFeatures: const [FontFeature.tabularFigures()]))]), const SizedBox(height: 4), Text(update.promptTitle ?? "Life Update", style: GoogleFonts.inter(fontSize: 13, color: AppColors.textDim), maxLines: 1, overflow: TextOverflow.ellipsis)])),
                 const SizedBox(width: 20),

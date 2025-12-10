@@ -5,8 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'src/core/theme/app_colors.dart';
 import 'src/shared/navigation/floating_bottom_nav.dart';
 import 'src/features/feed/presentation/feed_screen.dart';
+import 'src/features/friendship_book/presentation/friends_list_screen.dart';
+// Hier beide Screens importieren:
+import 'src/features/friendship_book/presentation/friendship_book_screen.dart';
+import 'src/features/friends/presentation/profile_screen.dart'; // Der "Alte" Screen
 import 'src/features/recorder/presentation/record_screen.dart';
-import 'src/features/friends/presentation/profile_screen.dart';
 
 void main() {
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -52,8 +55,13 @@ class _MainScaffoldState extends State<MainScaffold> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
+    // 1. Feed
     const FeedScreen(),
-    const Center(child: Text("Freunde (Coming Soon)")),
+
+    // 2. Freunde Liste (führt zu den Freundebüchern)
+    const FriendsListScreen(),
+
+    // 3. Mein Profil (Die alte Ansicht!)
     const ProfileScreen(),
   ];
 
@@ -62,7 +70,7 @@ class _MainScaffoldState extends State<MainScaffold> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => const RecordScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0); // Von unten einschweben
+          const begin = Offset(0.0, 1.0);
           const end = Offset.zero;
           const curve = Curves.easeOutQuart;
           var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
@@ -78,7 +86,6 @@ class _MainScaffoldState extends State<MainScaffold> {
       extendBody: true,
       body: Stack(
         children: [
-          // Hintergrund
           Container(
             decoration: const BoxDecoration(
               gradient: RadialGradient(
@@ -89,13 +96,11 @@ class _MainScaffoldState extends State<MainScaffold> {
             ),
           ),
 
-          // Inhalt
           IndexedStack(
             index: _currentIndex,
             children: _screens,
           ),
 
-          // Navigation
           Positioned(
             left: 0,
             right: 0,
@@ -103,7 +108,7 @@ class _MainScaffoldState extends State<MainScaffold> {
             child: FloatingBottomNav(
               currentIndex: _currentIndex,
               onTap: (index) => setState(() => _currentIndex = index),
-              onRecordTap: _openRecorder, // Hier rufen wir die Funktion auf
+              onRecordTap: _openRecorder,
             ),
           ),
         ],
